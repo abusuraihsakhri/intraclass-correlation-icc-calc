@@ -4,12 +4,33 @@ Command Line Interface for Intraclass Correlation Icc Calc.
 import argparse
 import csv
 import json
+import os
 import sys
+from pathlib import Path
 from agents.models import SystemTaskPayload
 from agents.supervisor import SystemSupervisor
 from agents.base import AuditLogger
 
 supervisor = SystemSupervisor(model_provider="mock")
+
+
+def _validate_input_path(input_path: str) -> str:
+    """Validate input file exists and is a regular file (prevents path traversal)."""
+    p = Path(input_path)
+    if not p.exists():
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+    if not p.is_file():
+        raise ValueError(f"Input path is not a regular file: {input_path}")
+    return str(p.resolve())
+
+
+def _validate_output_path(output_path: str) -> str:
+    """Validate output directory exists and is writable."""
+    p = Path(output_path)
+    parent = p.parent
+    if not parent.exists():
+        raise FileNotFoundError(f"Output directory does not exist: {parent}")
+    return str(p.resolve())
 
 
 def main(argv=None):
@@ -80,7 +101,9 @@ def main(argv=None):
         return 0
 
     if args.command == "batch":
-        with open(args.input, mode="r", encoding="utf-8-sig") as f:
+        input_path = _validate_input_path(args.input)
+        output_path = _validate_output_path(args.output)
+        with open(input_path, mode="r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             fieldnames = list(reader.fieldnames or [])
             rows = list(reader)
@@ -94,7 +117,7 @@ def main(argv=None):
                 primary_metric=float(r.get("primary_metric", 15.0)),
                 secondary_metric=float(r.get("secondary_metric", 5.0)),
                 status_descriptor=r.get("status_descriptor", "NOMINAL"),
-                is_critical_flag=bool(r.get("is_critical_flag", False)),
+                is_critical_flag=str(r.get("is_critical_flag", "")).lower() in ("true", "1", "yes"),
             )
             dossier = supervisor.process_task(payload)
             row_dict = dict(r)
@@ -104,11 +127,11 @@ def main(argv=None):
             row_dict["audit_hash"] = dossier.audit_hash
             out_rows.append(row_dict)
 
-        with open(args.output, mode="w", encoding="utf-8", newline="") as f:
+        with open(output_path, mode="w", encoding="utf-8", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=out_fields)
             writer.writeheader()
             writer.writerows(out_rows)
-        print(f"Processed {len(out_rows)} records -> {args.output}")
+        print(f"Processed {len(out_rows)} records -> {output_path}")
         return 0
 
     if args.command == "serve":

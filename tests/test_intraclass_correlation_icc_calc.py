@@ -3,12 +3,13 @@ Automated Pytest Test Suite for Intraclass Correlation Icc Calc.
 Domain: Clinical & Biomedical AI
 Standard: CAP / CLSI / ISO Standards
 """
+import os
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
-from agents.base import PHIGuard, AuditLogger, SecurityException
+from agents.base import PHIGuard, AuditLogger, AuditTrail, SecurityException
 from agents.models import SystemTaskPayload, UrgencyLevel, SystemIntegrityStatus
 from agents.workers import InvariantQCWorker, SafetyEscalationWorker, ProtocolConformanceWorker
 from agents.supervisor import SystemSupervisor
@@ -63,3 +64,28 @@ def test_supervisor_consensus_and_audit():
     assert main(["audit", "--task-id", "CLI-TEST-01"]) == 0
     assert main(["chat", "Explain", "specifications"]) == 0
     assert main(["verify-audit"]) == 0
+
+
+def test_audit_trail_auto_generates_secret():
+    """AuditTrail generates a random secret when none is provided."""
+    # Ensure env var is not set for this test
+    original = os.environ.pop("AUDIT_SECRET_KEY", None)
+    try:
+        trail = AuditTrail()
+        assert len(trail.secret_key) > 0
+        # Verify it can log and verify integrity
+        trail.log("test", "test_tier", "TEST_EVENT", {"key": "value"})
+        assert trail.verify_integrity() is True
+    finally:
+        if original is not None:
+            os.environ["AUDIT_SECRET_KEY"] = original
+
+
+def test_audit_trail_uses_env_var_when_set():
+    """AuditTrail uses AUDIT_SECRET_KEY from environment."""
+    os.environ["AUDIT_SECRET_KEY"] = "test-secret-key-12345"
+    try:
+        trail = AuditTrail()
+        assert trail.secret_key == b"test-secret-key-12345"
+    finally:
+        os.environ.pop("AUDIT_SECRET_KEY", None)

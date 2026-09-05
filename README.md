@@ -1,7 +1,6 @@
-# Intraclass Correlation Icc Calc
+# Intraclass Correlation ICC Calc
 
-> **Domain:** Clinical Decision Support & Biomedical Computing  
-> **Reference Guidelines & Standards:** `Standard Clinical Formulations & ISO/IEC Quality Frameworks`
+> **Domain:** Clinical Decision Support & Biomedical Computing
 
 <div align="center">
 
@@ -16,101 +15,166 @@
 
 ---
 
-## 📖 What It Does
+## Overview
 
-Intraclass Correlation Coefficient (ICC) & Design Effect
-Calculates Shrout & Fleiss ICC(1,1), ICC(2,1), ICC(3,1) from ANOVA mean squares and computes cluster design effect.
+Intraclass Correlation Coefficient (ICC) calculator with multi-agent evaluation pipeline. Provides single and batch evaluation modes, a FastAPI REST API, and a CLI with audit trail capabilities.
 
-Zero-dependency Python implementation with single and batch evaluation.
 Author: Dr. Abu Suraih Sakhri
 License: MIT
 
 ---
 
-## ⚙️ Key Capabilities & Algorithmic Modules
+## Features
 
-### 🔬 Analytical Functions
-
-- **`calculate_metrics()`**: Core domain algorithm for intraclass-correlation-icc-calc.
-- **`process_single()`** — calculates and validates process_single parameters.
-- **`process_batch()`** — calculates and validates process_batch parameters.
-- **`main()`** — calculates and validates main parameters.
-
----
-
-## 📐 Mathematical Formulation & Logic
-
-```text
-  score = primary_val
-  rounded_score = round(score, 2)
-  res = calculate_metrics(**kwargs)
-  calc_res = calculate_metrics(**r)
-```
+- **Single Evaluation**: Process individual cases via CLI
+- **Batch Processing**: Process CSV files with multiple records
+- **Multi-Agent Pipeline**: InvariantQC, Safety Escalation, and Protocol Conformance workers
+- **PHI Guard**: Zero-PHI outbound interceptor blocking SSNs, MRNs, phone numbers, and patient identifiers
+- **HMAC-SHA256 Audit Trail**: Tamper-evident cryptographic logging
+- **FastAPI REST API**: OpenAPI-compatible endpoints with health and metrics
+- **Prometheus Metrics**: Operational telemetry exporter
 
 ---
 
-## 💻 CLI Quickstart & Usage
+## Installation
 
-### 1. Guided Interactive Mode
 ```bash
-python cli.py
+# Clone the repository
+git clone https://github.com/abusuraihsakhri/intraclass-correlation-icc-calc.git
+cd intraclass-correlation-icc-calc
+
+# Install dependencies
+pip install -e .
+
+# Or with development dependencies
+pip install -e ".[dev]"
 ```
 
-### 2. Direct Parameterized Evaluation
+---
+
+## Usage
+
+### CLI Commands
+
+#### Single Evaluation
 ```bash
-python cli.py --task-id <value> --target <value> --primary <value> --secondary <value>
+python cli.py single --v1 12.0 --v2 4.0 --v3 2.0
 ```
 
-### Parameter Reference
-- `--task-id`: Specifies input measurement or parameter value.
-- `--target`: Specifies input measurement or parameter value.
-- `--primary`: Specifies input measurement or parameter value.
-- `--secondary`: Specifies input measurement or parameter value.
-- `--critical`: Specifies input measurement or parameter value.
-- `--status`: Specifies input measurement or parameter value.
-- `--input`: Specifies input measurement or parameter value.
-- `--output`: Specifies input measurement or parameter value.
+#### Batch Processing
+```bash
+python cli.py batch -i sample.csv -o results.csv
+```
 
-### Input Data Schema
+#### Audit Mode (Multi-Agent)
+```bash
+python cli.py audit --task-id TASK-001 --primary 28.5 --secondary 14.2
+```
+
+#### Chat Query
+```bash
+python cli.py chat "Explain specifications"
+```
+
+#### Verify Audit Trail
+```bash
+python cli.py verify-audit
+```
+
+#### Start API Server
+```bash
+python cli.py serve --host 127.0.0.1 --port 8000
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/metrics` | GET | System metrics |
+| `/api/audit` | POST | Submit task for evaluation |
+| `/api/chat` | POST | Query supervisory chat |
+| `/api/audit/logs` | GET | Get audit trail |
+
+---
+
+## Input Data Schema (Batch CSV)
 
 | Field | Description | Requirement |
 |:------|:------------|:------------|
-| `Patient_ID` | Parameter / observation metric | Required |
-| `v1` | Parameter / observation metric | Required |
-| `v2` | Parameter / observation metric | Required |
-| `v3` | Parameter / observation metric | Required |
+| `Patient_ID` | Patient identifier | Required |
+| `v1` | Primary measurement | Required |
+| `v2` | Secondary measurement | Required |
+| `v3` | Tertiary measurement | Required |
 
 ---
 
-## 🛡️ Security & Enterprise Architecture
+## Security
 
-* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
+- **Zero-PHI Outbound Interceptor**: AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers
+- **HMAC-SHA256 Audit Trail**: Chained, cryptographically signed logs
+- **Input Validation**: Path traversal protection on file operations
+- **Secure Defaults**: Auto-generated cryptographic secrets when not configured via environment variable
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `AUDIT_SECRET_KEY` | HMAC secret key for audit trail | Auto-generated (random) |
+| `MODEL_PROVIDER` | LLM provider (mock, ollama, claude, openai) | mock |
 
 ---
 
-## 🧪 Testing & Verification
-
-Run the automated test suite:
+## Testing
 
 ```bash
+# Run all tests
 pytest -v
-```
 
-Execute high-throughput batch simulation benchmarks:
+# Run with coverage
+pytest -v --cov
 
-```bash
-python simulator.py --tasks 1000 --concurrency 8
+# Run simulation benchmark
+python simulator.py 1000
 ```
 
 ---
 
-## 🐳 Container Deployment
+## Docker Deployment
 
 ```bash
+# Build and run with Docker Compose
+export AUDIT_SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+docker-compose up --build
+
+# Or with Docker directly
 docker build -t intraclass-correlation-icc-calc .
-docker run -p 8000:8000 intraclass-correlation-icc-calc
+docker run -p 8000:8000 -e AUDIT_SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))") intraclass-correlation-icc-calc
+```
+
+---
+
+## Project Structure
+
+```
+intraclass-correlation-icc-calc/
+├── agents/              # Multi-agent evaluation pipeline
+│   ├── base.py          # PHI Guard, Audit Trail, Security
+│   ├── models.py        # Pydantic data models
+│   ├── workers.py       # Specialized evaluation workers
+│   ├── supervisor.py    # Orchestrator
+│   ├── api.py           # FastAPI endpoints
+│   ├── metrics.py       # Prometheus metrics
+│   ├── llm_factory.py   # LLM provider factory
+│   ├── learning.py      # Bayesian calibration engine
+│   └── streamer.py      # WebSocket telemetry
+├── tests/               # Test suite
+├── web/                 # Web console (HTML)
+├── cli.py               # CLI entry point
+├── icc_calc.py          # Core calculation functions
+├── enrichment.py        # Enrichment feature engines
+├── simulator.py         # Load testing simulator
+├── pyproject.toml       # Project configuration
+├── Dockerfile           # Container build
+└── docker-compose.yml   # Container orchestration
 ```
