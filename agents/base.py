@@ -65,7 +65,7 @@ class AuditTrail:
     def _signature(self, entry):
         fields = ("audit_id", "timestamp", "actor", "actor_tier",
                   "event_type", "payload_hash", "prev_hash")
-        sign_string = "|".join(str(entry[name]) for name in fields)
+        sign_string = json.dumps([entry[name] for name in fields], separators=(",", ":"), ensure_ascii=False)
         return hmac.new(self.secret_key, sign_string.encode("utf-8"), hashlib.sha256).hexdigest()
 
     def log(self, actor: str, actor_tier: str, event_type: str,
