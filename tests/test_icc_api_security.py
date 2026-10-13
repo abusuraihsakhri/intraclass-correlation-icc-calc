@@ -35,3 +35,13 @@ def test_audit_detects_signature_tampering():
     trail.log("system", "test", "event", {"status": "ok"})
     trail.logs[0]["current_hash"] = "0" * 64
     assert not trail.verify_integrity()
+
+
+
+def test_audit_rejects_separator_reallocation_attack():
+    trail = AuditTrail("test-key")
+    trail.log("alpha|beta", "tier", "event", {"status": "ok"})
+    assert trail.verify_integrity()
+    trail.logs[0]["actor"] = "alpha"
+    trail.logs[0]["actor_tier"] = "beta|tier"
+    assert not trail.verify_integrity()
