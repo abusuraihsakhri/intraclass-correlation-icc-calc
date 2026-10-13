@@ -1,180 +1,99 @@
-# Intraclass Correlation ICC Calc
+# Intraclass Correlation (ICC) Calculator
 
-> **Domain:** Clinical Decision Support & Biomedical Computing
-
-<div align="center">
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
-
-</div>
-
----
-
-## Overview
-
-Intraclass Correlation Coefficient (ICC) calculator with multi-agent evaluation pipeline. Provides single and batch evaluation modes, a FastAPI REST API, and a CLI with audit trail capabilities.
-
-Author: Dr. Abu Suraih Sakhri
-License: MIT
-
----
+A browser and Python calculator for **balanced-design intraclass correlation coefficients**, together with a separate **cluster design effect** calculation.
 
 ## Features
 
-- **Single Evaluation**: Process individual cases via CLI
-- **Batch Processing**: Process CSV files with multiple records
-- **Multi-Agent Pipeline**: InvariantQC, Safety Escalation, and Protocol Conformance workers
-- **PHI Guard**: Zero-PHI outbound interceptor blocking SSNs, MRNs, phone numbers, and patient identifiers
-- **HMAC-SHA256 Audit Trail**: Tamper-evident cryptographic logging
-- **FastAPI REST API**: OpenAPI-compatible endpoints with health and metrics
-- **Prometheus Metrics**: Operational telemetry exporter
+- Calculate Shrout–Fleiss **ICC(1,1), ICC(1,k), ICC(2,1), ICC(2,k), ICC(3,1), and ICC(3,k)**.
+- One-way random, two-way random *absolute agreement*, and two-way mixed *consistency* estimates.
+- Paste a complete numeric subject-by-rater matrix, or upload a numeric CSV/TSV, and download a result CSV.
+- Compute design effect from **cluster size and a separately specified within-cluster ICC**.
+- Python standard-library calculation, ANOVA-summary batch CLI, and FastAPI endpoint (`POST /api/icc`).
+- Existing, separate experimental audit CLI/API remains available.
 
----
+## Use in your browser
 
-## Installation
+The standalone calculator is in [web/index.html](web/index.html). Open it locally or serve the `web/` directory:
 
 ```bash
-# Clone the repository
-git clone https://github.com/abusuraihsakhri/intraclass-correlation-icc-calc.git
-cd intraclass-correlation-icc-calc
-
-# Install dependencies
-pip install -e .
-
-# Or with development dependencies
-pip install -e ".[dev]"
+python -m http.server 8001 --directory web
 ```
 
----
+Visit `http://localhost:8001/`. Calculations run entirely in JavaScript; no backend or browser-Python runtime is necessary. Modern Chromium, Firefox, and Safari are targeted; automated numerical JavaScript tests run in Node.js.
 
-## Usage
+**Input format:** each line is one subject, each comma/tab-separated value is a rater's measurement. The same raters must score every subject. At least two subjects and two raters are required, and missing values are not supported.
 
-### CLI Commands
+Example:
 
-#### Single Evaluation
+```csv
+Rater A,Rater B
+1,2
+2,3
+3,4
+4,5
+```
+
+For this dataset, ICC(3,1) is 1 (perfect consistency), whereas ICC(2,1) is approximately 0.769231 because the second rater consistently scores one unit higher.
+
+## Python installation and usage
+
+Python 3.10+:
+
 ```bash
-python cli.py single --v1 12.0 --v2 4.0 --v3 2.0
+python -m pip install -e ".[dev]"
+python -m pytest -q
 ```
 
-#### Batch Processing
+Compute all six ICC forms using mean squares:
+
 ```bash
-python cli.py batch -i sample.csv -o results.csv
+python icc_calc.py single --subjects 4 --raters 2 \
+  --ms-between 3.333333333333 --ms-within 0.5 \
+  --ms-rater 2 --ms-error 0
 ```
 
-#### Audit Mode (Multi-Agent)
+`ms_between` is the subject mean square (MSR), `ms_within` the one-way within-subject mean square (MSW), `ms_rater` the rater mean square (MSC), and `ms_error` the two-way error mean square (MSE). If MSC and MSE are omitted, only the one-way ICC(1) forms are estimated. Undefined estimates are returned as `null`, not zero.
+
+Batch processing accepts one ANOVA summary per row:
+
 ```bash
-python cli.py audit --task-id TASK-001 --primary 28.5 --secondary 14.2
+python icc_calc.py batch -i sample.csv -o results.csv
 ```
 
-#### Chat Query
-```bash
-python cli.py chat "Explain specifications"
-```
+Required CSV columns: `subjects,raters,ms_between,ms_within`. Optional pairs: `ms_rater,ms_error` and `cluster_size,cluster_icc`. The output includes the six ICC estimates and design effect, where estimable. The installed command `icc-anova` exposes the same interface.
 
-#### Verify Audit Trail
-```bash
-python cli.py verify-audit
-```
+For raw matrices, Python callers can use `from icc_calc import calculate_from_ratings` and pass a rectangular `list[list[float]]`.
 
-#### Start API Server
+## API and legacy audit utilities
+
 ```bash
 python cli.py serve --host 127.0.0.1 --port 8000
 ```
 
-### API Endpoints
+- `POST /api/icc` with `{"ratings":[[1,2],[2,3],[3,4],[4,5]]}` returns ICC point estimates and mean squares.
+- `GET /health` and `GET /metrics` provide basic status.
+- The preexisting `/api/audit`, `/api/chat`, and `/api/audit/logs` endpoints remain available.
+- Legacy audit commands: `python cli.py audit`, `python cli.py batch`, `python cli.py chat`, and `python cli.py verify-audit`.
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/metrics` | GET | System metrics |
-| `/api/audit` | POST | Submit task for evaluation |
-| `/api/chat` | POST | Query supervisory chat |
-| `/api/audit/logs` | GET | Get audit trail |
+The legacy worker thresholds and mock chat responses are **not statistical ICC analyses, diagnostic recommendations, or clinical standards validations**. Do not expose the unauthenticated audit API to an untrusted network. The audit log and its random HMAC key are kept in process memory unless `AUDIT_SECRET_KEY` is provided; neither persistence nor independently trusted storage is implemented. The identifier guard is heuristic, **not a guarantee of PHI deidentification**.
 
----
+## Statistical assumptions and reporting
 
-## Input Data Schema (Batch CSV)
+ICC form selection depends on model, fixed/random raters, and whether absolute agreement or consistency matters. Results here are **point estimates only**; confidence intervals and significance tests are not implemented. Negative ICC estimates are preserved. Do not substitute an interrater ICC for a study's within-cluster ICC without a justified model. The displayed equal-size-cluster design effect is `1 + (m - 1) × rho`.
 
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `Patient_ID` | Patient identifier | Required |
-| `v1` | Primary measurement | Required |
-| `v2` | Secondary measurement | Required |
-| `v3` | Tertiary measurement | Required |
+Reference: Koo TK, Li MY. *A Guideline of Selecting and Reporting Intraclass Correlation Coefficients for Reliability Research.* J Chiropr Med. 2016;15:155–163. [doi:10.1016/j.jcm.2016.02.012](https://doi.org/10.1016/j.jcm.2016.02.012).
 
----
+## Privacy, testing, and license
 
-## Security
+The static browser calculator processes input locally without transmitting ratings to a server or loading external scripts. Avoid patient-identifiable input. CLI/API processing is local to the deployment, subject to the operator's networking and logging configuration.
 
-- **Zero-PHI Outbound Interceptor**: AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers
-- **HMAC-SHA256 Audit Trail**: Chained, cryptographically signed logs
-- **Input Validation**: Path traversal protection on file operations
-- **Secure Defaults**: Auto-generated cryptographic secrets when not configured via environment variable
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `AUDIT_SECRET_KEY` | HMAC secret key for audit trail | Auto-generated (random) |
-| `MODEL_PROVIDER` | LLM provider (mock, ollama, claude, openai) | mock |
-
----
-
-## Testing
+Tests include Python reference cases, error handling, CSV processing, audit HMAC tampering, and native JavaScript numerical tests:
 
 ```bash
-# Run all tests
-pytest -v
-
-# Run with coverage
-pytest -v --cov
-
-# Run simulation benchmark
-python simulator.py 1000
+python -m pytest -q
+node --test web/test_icc.js
 ```
 
----
+CI checks Python 3.10–3.12 and Node 22. A separate workflow is provided for GitHub Pages when repository Pages is enabled.
 
-## Docker Deployment
-
-```bash
-# Build and run with Docker Compose
-export AUDIT_SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
-docker-compose up --build
-
-# Or with Docker directly
-docker build -t intraclass-correlation-icc-calc .
-docker run -p 8000:8000 -e AUDIT_SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))") intraclass-correlation-icc-calc
-```
-
----
-
-## Project Structure
-
-```
-intraclass-correlation-icc-calc/
-├── agents/              # Multi-agent evaluation pipeline
-│   ├── base.py          # PHI Guard, Audit Trail, Security
-│   ├── models.py        # Pydantic data models
-│   ├── workers.py       # Specialized evaluation workers
-│   ├── supervisor.py    # Orchestrator
-│   ├── api.py           # FastAPI endpoints
-│   ├── metrics.py       # Prometheus metrics
-│   ├── llm_factory.py   # LLM provider factory
-│   ├── learning.py      # Bayesian calibration engine
-│   └── streamer.py      # WebSocket telemetry
-├── tests/               # Test suite
-├── web/                 # Web console (HTML)
-├── cli.py               # CLI entry point
-├── icc_calc.py          # Core calculation functions
-├── enrichment.py        # Enrichment feature engines
-├── simulator.py         # Load testing simulator
-├── pyproject.toml       # Project configuration
-├── Dockerfile           # Container build
-└── docker-compose.yml   # Container orchestration
-```
+Licensed under [MIT](LICENSE). Maintained by Dr. Abu Suraih Sakhri.
