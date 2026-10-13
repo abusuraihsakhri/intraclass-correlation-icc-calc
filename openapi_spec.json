@@ -1,112 +1,96 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Intraclass Correlation Icc Calc API",
-    "description": "Enterprise Distributed Component Platform (Clinical & Cryptographic AI) adhering to CAP / CLSI / NIST Standards.",
-    "version": "3.0.0-ENTERPRISE",
-    "contact": {
-      "name": "Dr. Abu Suraih Sakhri",
-      "url": "https://github.com/abusuraihsakhri"
-    }
+    "title": "Intraclass Correlation Calculator API",
+    "description": "ICC point estimates plus separate experimental audit endpoints. The runtime /openapi.json is authoritative.",
+    "version": "3.1.0"
   },
   "paths": {
     "/health": {
       "get": {
-        "summary": "Health and metadata check",
+        "summary": "Service health",
         "responses": {
           "200": {
-            "description": "System optimal"
+            "description": "Health and version"
           }
         }
       }
     },
     "/metrics": {
       "get": {
-        "summary": "Prometheus operational metrics",
+        "summary": "Basic JSON runtime counters",
         "responses": {
           "200": {
-            "description": "Prometheus text metrics"
+            "description": "Operational counters and audit integrity status"
+          }
+        }
+      }
+    },
+    "/api/icc": {
+      "post": {
+        "summary": "Compute balanced-design ICCs from subject-by-rater ratings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ratings"
+                ],
+                "properties": {
+                  "ratings": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                      "type": "array",
+                      "minItems": 2,
+                      "items": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Six ICC point estimates and ANOVA mean squares"
+          },
+          "422": {
+            "description": "Missing, nonnumeric, unbalanced, or otherwise invalid ratings"
           }
         }
       }
     },
     "/api/audit": {
       "post": {
-        "summary": "Dispatch task payload across specialized workers",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "task_id": {
-                    "type": "string"
-                  },
-                  "target_identifier": {
-                    "type": "string"
-                  },
-                  "primary_metric": {
-                    "type": "number"
-                  },
-                  "secondary_metric": {
-                    "type": "number"
-                  },
-                  "status_descriptor": {
-                    "type": "string"
-                  },
-                  "is_critical_flag": {
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "task_id",
-                  "target_identifier",
-                  "primary_metric"
-                ]
-              }
-            }
-          }
-        },
+        "summary": "Experimental audit worker evaluation (not an ICC calculation)",
         "responses": {
           "200": {
-            "description": "Consensus dossier with HMAC signature"
+            "description": "Audit dossier"
           }
         }
       }
     },
     "/api/chat": {
       "post": {
-        "summary": "Air-gapped supervisory conversational assistant",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "query": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "query"
-                ]
-              }
-            }
-          }
-        },
+        "summary": "Mock supervisory chat response",
         "responses": {
           "200": {
-            "description": "Supervisory response"
+            "description": "Mock reply"
           }
         }
       }
     },
     "/api/audit/logs": {
       "get": {
-        "summary": "Retrieve and cryptographically verify HMAC audit trail",
+        "summary": "In-memory signed audit records",
         "responses": {
           "200": {
-            "description": "Cryptographic audit trail"
+            "description": "Audit trail and signature verification status"
           }
         }
       }
