@@ -24,10 +24,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
+      - name: Prepare static site
+        run: |
+          mkdir -p site
+          cp web/index.html web/icc.js site/
       - name: Upload static calculator
         uses: actions/upload-pages-artifact@v3
         with:
-          path: web
+          path: site
       - name: Deploy site
         id: deployment
         uses: actions/deploy-pages@v4
