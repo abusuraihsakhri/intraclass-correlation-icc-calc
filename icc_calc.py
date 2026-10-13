@@ -34,7 +34,7 @@ def _count(value, label):
 
 def _ratio(numerator, denominator):
     # A zero denominator is an unidentified statistic, not an ICC of zero.
-    return None if abs(denominator) < 1e-14 else numerator / denominator
+    return None if denominator == 0 else numerator / denominator
 
 
 def design_effect(cluster_size, cluster_icc):
